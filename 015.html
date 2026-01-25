@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>我的网格导航站</title>
+    <style>
+        /* 全局基础样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+            caret-color: transparent;
+        }
+        body {
+            background-color: #f5f7fa;
+            display: flex;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 左侧侧边栏 */
+        .sidebar {
+            width: 200px;
+            background: #2d3748;
+            height: 100vh;
+            padding: 1rem 0.8rem;
+            overflow-y: auto;
+            position: sticky;
+            top: 0;
+        }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #4299e1; border-radius: 2px; }
+        .sidebar::-webkit-scrollbar-track { background: #4a5568; }
+
+        /* 侧边栏菜单项 */
+        .menu-item {
+            width: 100%;
+            height: 60px;
+            margin-bottom: 0.8rem;
+            background: #374151;
+            border-radius: 8px;
+            color: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: default;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+            font-size: 1rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+        .menu-item:hover {
+            background: linear-gradient(135deg, #4b5563, #374151);
+            transform: scale(1.02);
+            border-color: rgba(66, 153, 225, 0.5);
+            color: #4299e1;
+        }
+        .menu-item.active {
+            background: linear-gradient(135deg, #4299e133, #374151);
+            color: #4299e1;
+            border-left: 4px solid #4299e1;
+            transform: scale(1.03);
+            box-shadow: 0 0 10px rgba(66, 153, 225, 0.2);
+        }
+
+        /* 右侧主内容区 */
+        .main-content {
+            flex: 1;
+            height: 100vh;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .main-content::-webkit-scrollbar { width: 6px; }
+        .main-content::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
+        .main-content::-webkit-scrollbar-track { background: #f5f7fa; }
+
+        /* 网格容器 */
+        .grid-container {
+            display: grid;
+            gap: 1.5rem;
+            width: 100%;
+            min-height: 200px;
+        }
+        /* 主页网格适配 */
+        #home .grid-container {
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            padding: 0 16px;
+        }
+        /* 非主页网格布局 */
+        .content-panel:not(#home) .grid-container {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        /* 网格项样式 - 原有样式完全保留，仅新增position: relative */
+        .grid-item {
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 0.8rem 0.5rem;
+            height: 90px;
+            user-select: none;
+            cursor: pointer;
+            outline: none;
+            position: relative; /* 提示框定位基础 */
+            z-index: 1;
+        }
+        .grid-item:hover {
+            border-color: #4299e1;
+            background: #ebf8ff;
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.12), 0 0 10px rgba(66, 153, 225, 0.1);
+        }
+        .grid-item::selection {
+            background: transparent;
+            color: inherit;
+        }
+
+        /* 🌟 悬浮提示小方块样式 - 新增下方显示逻辑 */
+        .grid-tip {
+            position: absolute;
+            top: -38px; /* 默认上方显示 */
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 6px 12px;
+            background: #2d3748;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 8px;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            z-index: 99;
+            pointer-events: none;
+        }
+        /* 悬浮时显示提示框 */
+        .grid-item:hover .grid-tip {
+            opacity: 1;
+            visibility: visible;
+        }
+        /* 🌟 新增：下方显示样式（避免顶部超出屏幕） */
+        .grid-tip.bottom {
+            top: auto; /* 取消上方定位 */
+            bottom: -30px; /* 下方显示，距离方块底部38px */
+        }
+        /* 下方显示时，小三角方向反转（可选，更美观） */
+        .grid-tip::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 6px 6px 0;
+            border-style: solid;
+            border-color: #2d3748 transparent transparent; /* 默认三角向上（指向方块） */
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+        }
+        .grid-item:hover .grid-tip::after {
+            opacity: 1;
+            visibility: visible;
+        }
+        /* 下方显示时，三角向下（指向方块） */
+        .grid-tip.bottom::after {
+            border-width: 0 6px 6px;
+            border-color: transparent transparent #2d3748;
+            top: -6px;
+            bottom: auto;
+        }
+
+        /* 网格文字 */
+        .grid-name {
+            color: #2d3748;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            width: 100%;
+            overflow: hidden;
+            text-align: center;
+        }
+        .grid-url {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 90%;
+            text-align: center;
+        }
+        #home .grid-url {
+            font-size: 0.8rem;
+            color: #4299e1;
+        }
+
+        /* 网格链接 */
+        .grid-item a {
+            text-decoration: none;
+            color: inherit;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+
+        /* 面板切换 */
+        .content-panel { display: none; }
+        .content-panel.active { display: block; }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .sidebar { width: 160px; padding: 1rem 0.5rem; }
+            .menu-item { height: 55px; font-size: 0.9rem; }
+            .main-content { padding: 1rem; }
+            
+            .grid-container {
+                grid-template-columns: repeat(2, 1fr)!important;
+                gap: 1.2rem!important;
+            }
+            #home .grid-container { gap: 12px!important; padding: 0 8px!important; }
+            
+            .grid-item { height: 80px; padding: 0.6rem 0.3rem; }
+            .grid-name { font-size: 0.9rem; }
+            .grid-url { font-size: 0.7rem; }
+            /* 移动端提示框适配 */
+            .grid-tip { top: -35px; padding: 4px 8px; font-size: 10px; }
+            .grid-tip.bottom { bottom: -32px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebarContainer"></div>
+    <div class="main-content" id="contentContainer"></div>
+
+    <script>
+        // 核心导航数据（和之前一致，仅保留tip字段）
+        const navData = [
+            {
+                id: "home",
+                name: "主页",
+                list: [
+                    { name: "🌟 我的专属网格导航站", url: "一站式聚合常用网站，高效访问不迷路", link: "javascript:;"},
+                    { name: "📌 网站定位", url: "个人/办公常用网站聚合，分类清晰、一键访问", link: "javascript:;" },
+                    { name: "⚡ 核心功能", url: "多分类导航、扁网格布局、移动端适配、hover互动", link: "javascript:;" },
+                    { name: "💡 使用说明", url: "点击左侧分类切换内容，网格项点击直达对应网站", link: "javascript:;" },
+                    { name: "📱 适配说明", url: "支持手机/平板/电脑，768px以下自动切换2列布局", link: "javascript:;" },
+                    { name: "✏️ 维护方式", url: "数据驱动设计，修改navData即可新增/编辑分类/网站", link: "javascript:;" },
+                    { name: "🎨 设计特点", url: "无冗余代码、样式统一、hover/激活态强化互动", link: "javascript:;" },
+                    { name: "🚀 适用场景", url: "日常办公、编程开发、学习资料、娱乐休闲、生活服务", link: "javascript:;" },
+                    { name: "👁️ 网站访问量", url: "本站总访问人数：<span id='busuanzi_value_site_pv'></span> 次", link: "javascript:;" },
+                ]
+            },
+            { id: "panel1", name: "综合导航", list: [
+                { name: "百度", url: "www.baidu.com", link: "https://www.baidu.com", tip: "全球最大中文搜索引擎，快速查信息" },
+                { name: "GitHub", url: "github.com", link: "https://github.com", tip: "全球最大开源代码托管平台，程序员必备" },
+                { name: "腾讯文档", url: "docs.qq.com", link: "https://docs.qq.com", tip: "在线协作文档，多人实时编辑" },
+                { name: "B站", url: "www.bilibili.com", link: "https://www.bilibili.com", tip: "综合视频平台，含学习/娱乐/动漫" },
+                { name: "网易云", url: "music.163.com", link: "https://music.163.com", tip: "高品质音乐播放，个性化歌单推荐" },
+                { name: "知乎", url: "www.zhihu.com", link: "https://www.zhihu.com", tip: "高质量问答社区，专业知识分享" },
+                { name: "QQ邮箱", url: "mail.qq.com", link: "https://mail.qq.com", tip: "腾讯官方邮箱，便捷收发邮件" },
+                { name: "微博", url: "www.weibo.com", link: "https://www.weibo.com", tip: "社交媒体平台，实时热点资讯" }
+            ]},
+            { id: "panel2", name: "办公工具", list: [
+                { name: "WPS", url: "www.wps.cn", link: "https://www.wps.cn", tip: "全能办公软件，兼容Word/Excel/PPT" },
+                { name: "腾讯文档", url: "docs.qq.com", link: "https://docs.qq.com", tip: "在线协作文档，多人实时编辑" },
+                { name: "Canva", url: "www.kadraw.com", link: "https://www.kadraw.com", tip: "简易设计工具，零基础做海报/排版" },
+                { name: "Trello", url: "trello.com", link: "https://trello.com", tip: "项目管理工具，可视化任务跟踪" },
+                { name: "XMind", url: "www.xmind.cn", link: "https://www.xmind.cn", tip: "思维导图工具，梳理思路更清晰" },
+                { name: "百度网盘", url: "pan.baidu.com", link: "https://pan.baidu.com", tip: "云存储服务，文件同步/分享/备份" },
+                { name: "Teams", url: "teams.microsoft.com", link: "https://teams.microsoft.com", tip: "微软办公协作，聊天/会议/文档一体" },
+                { name: "石墨文档", url: "shimo.im", link: "https://shimo.im", tip: "轻量级在线文档，快速协作编辑" }
+            ]},
+            { id: "panel3", name: "编程开发", list: [
+                { name: "GitHub", url: "github.com", link: "https://github.com", tip: "全球最大开源代码托管平台，程序员必备" },
+                { name: "Gitee", url: "gitee.com", link: "https://gitee.com", tip: "国内开源代码托管平台，访问更稳定" },
+                { name: "力扣", url: "leetcode.cn", link: "https://leetcode.cn", tip: "编程刷题平台，提升算法能力" },
+                { name: "MDN", url: "developer.mozilla.org", link: "https://developer.mozilla.org", tip: "Web开发权威文档，前端学习必备" },
+                { name: "菜鸟教程", url: "www.runoob.com", link: "https://www.runoob.com", tip: "零基础编程教程，快速入门各类语言" },
+                { name: "Stack Overflow", url: "stackoverflow.com", link: "https://stackoverflow.com", tip: "全球程序员问答社区，解决开发问题" },
+                { name: "NPM", url: "npmjs.com", link: "https://npmjs.com", tip: "Node.js包管理工具，前端开发必备" },
+                { name: "Vue", url: "cn.vuejs.org", link: "https://cn.vuejs.org", tip: "渐进式前端框架，易上手，轻量级" }
+            ]},
+            { id: "panel4", name: "设计创作", list: [
+                { name: "Figma", url: "www.figma.com", link: "https://www.figma.com", tip: "在线UI设计工具，团队协作更高效" },
+                { name: "千库网", url: "www.psd.cn", link: "https://www.psd.cn", tip: "设计素材网站，免抠图/字体/模板" },
+                { name: "千图网", url: "www.58pic.com", link: "https://www.58pic.com", tip: "海量设计素材，海报/PPT/插画免费下" },
+                { name: "Behance", url: "www.behance.net", link: "https://www.behance.net", tip: "全球创意设计平台，欣赏优质作品" },
+                { name: "Dribbble", url: "dribbble.com", link: "https://dribbble.com", tip: "UI设计灵感平台，精选创意设计" },
+                { name: "AE公园", url: "www.aepark.com", link: "https://www.aepark.com", tip: "AE教程/模板，视频特效制作学习" },
+                { name: "Pexels", url: "www.pexels.com", link: "https://www.pexels.com", tip: "免费高清图片/视频，可商用无版权" },
+                { name: "Unsplash", url: "unsplash.com", link: "https://unsplash.com", tip: "免费高质量图片，设计师必备" }
+            ]},
+            { id: "panel5", name: "学习资料", list: [
+                { name: "B站学习", url: "www.bilibili.com", link: "https://www.bilibili.com", tip: "免费学习视频，覆盖全学科/全阶段" },
+                { name: "中国大学MOOC", url: "www.icourse163.org", link: "https://www.icourse163.org", tip: "高校精品课程，免费在线学习" },
+                { name: "学堂在线", url: "www.xuetangx.com", link: "https://www.xuetangx.com", tip: "国内外高校课程，在线学习拿证书" },
+                { name: "Coursera", url: "www.coursera.org", link: "https://www.coursera.org", tip: "国际名校课程，在线学习提升学历" },
+                { name: "edX", url: "edx.org", link: "https://edx.org", tip: "哈佛/麻省等名校课程，免费在线学习" },
+                { name: "Z-Library", url: "www.zlibrary.se", link: "https://www.zlibrary.se", tip: "免费电子书库，海量图书在线阅读" },
+                { name: "原创力文档", url: "book118.com", link: "https://book118.com", tip: "实用文档下载，课件/论文/模板" },
+                { name: "豆丁网", url: "www.doc88.com", link: "https://www.doc88.com", tip: "专业文档分享，学术/办公/学习资料" }
+            ]},
+            { id: "panel6", name: "娱乐休闲", list: [
+                { name: "B站", url: "www.bilibili.com", link: "https://www.bilibili.com", tip: "综合视频平台，番剧/直播/游戏/学习" },
+                { name: "网易云音乐", url: "music.163.com", link: "https://music.163.com", tip: "高品质音乐，个性化推荐，歌单分享" },
+                { name: "Spotify", url: "www.spotify.com", link: "https://www.spotify.com", tip: "全球音乐平台，海量正版曲库" },
+                { name: "腾讯视频", url: "v.qq.com", link: "https://v.qq.com", tip: "综合视频平台，电影/电视剧/综艺" },
+                { name: "爱奇艺", url: "www.iqiyi.com", link: "https://www.iqiyi.com", tip: "高清视频平台，独家影视/综艺资源" },
+                { name: "Netflix", url: "www.netflix.com", link: "https://www.netflix.com", tip: "全球知名流媒体，优质原创剧集" },
+                { name: "Steam", url: "store.steampowered.com", link: "https://store.steampowered.com", tip: "全球知名游戏平台，正版游戏购买" },
+                { name: "Epic", url: "www.epicgames.com", link: "https://www.epicgames.com", tip: "Epic游戏商城，每周免费领游戏" }
+            ]},
+            { id: "panel7", name: "购物消费", list: [
+                { name: "淘宝", url: "www.taobao.com", link: "https://www.taobao.com", tip: "国内最大电商平台，海量商品选购" },
+                { name: "京东", url: "www.jd.com", link: "https://www.jd.com", tip: "综合电商平台，正品保障，次日达" },
+                { name: "拼多多", url: "www.pinduoduo.com", link: "https://www.pinduoduo.com", tip: "社交电商平台，拼团更优惠" },
+                { name: "亚马逊", url: "www.amazon.com", link: "https://www.amazon.com", tip: "全球电商平台，海外商品选购" },
+                { name: "天猫", url: "www.tmall.com", link: "https://www.tmall.com", tip: "品牌电商平台，正品保障" },
+                { name: "苏宁", url: "www.suning.com", link: "https://www.suning.com", tip: "综合电商平台，家电数码正品" },
+                { name: "唯品会", url: "www.vipshop.com", link: "https://www.vipshop.com", tip: "品牌特卖平台，折扣优惠多多" },
+                { name: "考拉海购", url: "www.koala.com", link: "https://www.koala.com", tip: "跨境电商平台，海外正品直邮" }
+            ]},
+            { id: "panel8", name: "生活服务", list: [
+                { name: "饿了么", url: "www.ele.me", link: "https://www.ele.me", tip: "外卖点餐平台，美食快速送达" },
+                { name: "美团", url: "www.meituan.com", link: "https://www.meituan.com", tip: "生活服务平台，外卖/团购/出行" },
+                { name: "百度地图", url: "map.baidu.com", link: "https://map.baidu.com", tip: "智能地图，导航/打车/周边查询" },
+                { name: "高德地图", url: "amap.com", link: "https://amap.com", tip: "专业导航，实时路况，打车更便捷" },
+                { name: "携程", url: "www.ctrip.com", link: "https://www.ctrip.com", tip: "旅游预订平台，机票/酒店/景点" },
+                { name: "飞猪", url: "www.fliggy.com", link: "https://www.fliggy.com", tip: "阿里旅游平台，机票/酒店/度假" },
+                { name: "58同城", url: "www.58.com", link: "https://www.58.com", tip: "生活信息平台，招聘/租房/二手" },
+                { name: "滴滴出行", url: "www.didiglobal.com", link: "https://www.didiglobal.com", tip: "网约车平台，出行更方便" }
+            ]},
+            { id: "panel9", name: "金融理财", list: [
+                { name: "支付宝", url: "www.alipay.com", link: "https://www.alipay.com", tip: "移动支付平台，理财/缴费/出行" },
+                { name: "微信支付", url: "pay.weixin.qq.com", link: "https://pay.weixin.qq.com", tip: "微信内置支付，便捷转账/付款" },
+                { name: "中国银行", url: "www.bankofchina.com", link: "https://www.bankofchina.com", tip: "中国银行官网，手机银行/理财服务" },
+                { name: "工商银行", url: "www.icbc.com.cn", link: "https://www.icbc.com.cn", tip: "工商银行官网，个人/企业金融服务" },
+                { name: "招商银行", url: "www.cmbchina.com", link: "https://www.cmbchina.com", tip: "招商银行官网，信用卡/理财/贷款" },
+                { name: "东方财富", url: "www.eastmoney.com", link: "https://www.eastmoney.com", tip: "财经资讯平台，股票/基金/理财" },
+                { name: "雪球", url: "xueqiu.com", link: "https://xueqiu.com", tip: "股票投资社区，实时行情/交流" },
+                { name: "天天基金", url: "fund.eastmoney.com", link: "https://fund.eastmoney.com", tip: "基金理财平台，海量基金选购" }
+            ]},
+            { id: "panel10", name: "实用工具", list: [
+                { name: "百度地图", url: "map.baidu.com", link: "https://map.baidu.com", tip: "智能地图，导航/周边/公交查询" },
+                { name: "百度翻译", url: "fanyi.baidu.com", link: "https://fanyi.baidu.com", tip: "多语言翻译，文本/文档/图片翻译" },
+                { name: "谷歌翻译", url: "translate.google.cn", link: "https://translate.google.cn", tip: "全球通用翻译，多语言精准转换" },
+                { name: "短链接生成", url: "www.tinyurl.com", link: "https://www.tinyurl.com", tip: "长链接变短，方便分享" },
+                { name: "Photopea", url: "www.photopea.com", link: "https://www.photopea.com", tip: "在线PS，无需安装，图片编辑" },
+                { name: "格式转换", url: "convertio.co/zh/", link: "https://convertio.co/zh/", tip: "万能格式转换，文件/视频/音频" },
+                { name: "在线转换", url: "www.online-convert.com", link: "https://www.online-convert.com", tip: "在线文件转换，支持多种格式" },
+                { name: "网速测试", url: "speedtest.net", link: "https://speedtest.net", tip: "测试网络速度，延迟/下载/上传" }
+            ]}
+        ];
+
+        // DOM元素获取
+        const sidebarContainer = document.getElementById('sidebarContainer');
+        const contentContainer = document.getElementById('contentContainer');
+
+        // 渲染侧边栏（原有逻辑不变）
+        function renderSidebar() {
+            sidebarContainer.innerHTML = navData.map((item, i) => 
+                `<div class="menu-item ${i === 0 ? 'active' : ''}" data-target="${item.id}">${item.name}</div>`
+            ).join('');
+        }
+
+        // 渲染内容面板（原有逻辑不变）
+        function renderContent() {
+            contentContainer.innerHTML = navData.map(panel => {
+                const gridItems = panel.list.map(grid => `
+                    <div class="grid-item">
+                        ${panel.id !== 'home' && grid.tip ? `<div class="grid-tip">${grid.tip}</div>` : ''}
+                        <a href="${grid.link}" target="_blank">
+                            <div class="grid-name">${grid.name}</div>
+                            <div class="grid-url">${grid.url}</div>
+                        </a>
+                    </div>
+                `).join('');
+                return `<div class="content-panel ${panel.id === 'home' ? 'active' : ''}" id="${panel.id}">
+                    <div class="grid-container">${gridItems}</div>
+                </div>`;
+            }).join('');
+        }
+
+        // 🌟 新增：提示框位置自适应逻辑（核心修复代码）
+        function initTipPosition() {
+            // 给所有非主页的网格项绑定鼠标悬浮事件
+            document.querySelectorAll('.content-panel:not(#home) .grid-item').forEach(item => {
+                item.addEventListener('mouseover', function() {
+                    const tip = this.querySelector('.grid-tip');
+                    if (!tip) return;
+
+                    // 获取方块相对于视口的位置信息
+                    const rect = this.getBoundingClientRect();
+                    // 提示框高度（约30px，根据样式估算，可按需调整）
+                    const tipHeight = 30;
+                    // 方块顶部到页面顶部的距离 < 提示框高度 + 10px（预留缓冲）→ 切换到下方显示
+                    if (rect.top < tipHeight + 10) {
+                        tip.classList.add('bottom');
+                    } else {
+                        tip.classList.remove('bottom'); // 否则保持上方显示
+                    }
+                });
+            });
+        }
+
+        // 绑定切换事件（原有逻辑不变）
+        function bindEvents() {
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+                    item.classList.add('active');
+                    const target = item.dataset.target;
+                    document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+                    document.getElementById(target).classList.add('active');
+                    
+                    // 切换面板后重新初始化提示框位置（解决切换面板后顶部方块检测失效）
+                    initTipPosition();
+                });
+            });
+        }
+
+        // 初始化（新增initTipPosition调用）
+        renderSidebar();
+        renderContent();
+        bindEvents();
+        initTipPosition(); // 页面加载时初始化
+    </script>
+    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+</body>
+</html>
