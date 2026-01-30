@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>我的网格导航站</title>
+    <style>
+        /* 全局基础样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+            caret-color: transparent;
+        }
+        body {
+            background-color: #f5f7fa;
+            display: flex;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 左侧侧边栏 */
+        .sidebar {
+            width: 200px;
+            background: #2d3748;
+            height: 100vh;
+            padding: 1rem 0.8rem;
+            overflow-y: auto;
+            position: sticky;
+            top: 0;
+        }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #4299e1; border-radius: 2px; }
+        .sidebar::-webkit-scrollbar-track { background: #4a5568; }
+
+        /* 侧边栏菜单项 */
+        .menu-item {
+            width: 100%;
+            height: 60px;
+            margin-bottom: 0.8rem;
+            background: #374151;
+            border-radius: 8px;
+            color: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: default;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+            font-size: 1rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+        .menu-item:hover {
+            background: linear-gradient(135deg, #4b5563, #374151);
+            transform: scale(1.02);
+            border-color: rgba(66, 153, 225, 0.5);
+            color: #4299e1;
+        }
+        .menu-item.active {
+            background: linear-gradient(135deg, #4299e133, #374151);
+            color: #4299e1;
+            border-left: 4px solid #4299e1;
+            transform: scale(1.03);
+            box-shadow: 0 0 10px rgba(66, 153, 225, 0.2);
+        }
+
+        /* 右侧主内容区 */
+        .main-content {
+            flex: 1;
+            height: 100vh;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .main-content::-webkit-scrollbar { width: 6px; }
+        .main-content::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
+        .main-content::-webkit-scrollbar-track { background: #f5f7fa; }
+
+        /* 搜索框样式 */
+        .search-container {
+            margin-bottom: 2rem;
+            width: 100%;
+            max-width: 600px;
+        }
+        .search-input {
+            width: 100%;
+            padding: 0.8rem 1.2rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            color: #2d3748;
+            outline: none;
+            transition: all 0.3s ease;
+            caret-color: #4299e1;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        }
+        .search-input:focus {
+            border-color: #4299e1;
+            box-shadow: 0 0 10px rgba(66, 153, 225, 0.15);
+        }
+        .search-input::placeholder {
+            color: #9ca3af;
+            font-size: 0.95rem;
+        }
+
+        /* 核心：固定标准尺寸方块（所有端统一规则，多端仅调整数值） */
+        .grid-container {
+            width: 100%;
+            padding: 0;
+        }
+        /* 普通面板（非搜索）：横向排列 - Flex一行排满自动换行 */
+        .content-panel:not(#home):not(.search-show) .grid-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            align-items: flex-start;
+        }
+        /* 搜索结果面板：纵向排列 - Flex单列垂直排列 */
+        .content-panel.search-show .grid-container {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            align-items: flex-start;
+        }
+        /* 固定标准尺寸：所有方块统一宽高，无自适应（核心） */
+        .content-panel:not(#home) .grid-item {
+            width: 170px !important;; /* 标准宽度，所有方块统一 */
+            height: 100px !important;; /* 标准高度，所有方块统一 */
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            padding: 0.8rem;
+            user-select: none;
+            cursor: pointer;
+            outline: none;
+            position: relative;
+            z-index: 1;
+            margin: 0; /* 清除默认边距，避免间隙 */
+        }
+
+        /* 主页专属样式：纯横向文字布局【完全保留】 */
+        #home .grid-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+        #home .grid-item {
+            all: unset;
+            display: block;
+            line-height: 1.8;
+        }
+        #home .grid-item:hover {
+            all: unset;
+            display: block;
+            color: #4299e1;
+            line-height: 1.8;
+        }
+        #home .grid-name {
+            color: #2d3748;
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: inline-block;
+            margin-right: 0.8rem;
+        }
+        #home .grid-url {
+            font-size: 1rem;
+            color: #4a5568;
+            display: inline;
+            white-space: normal;
+            line-height: 1.8;
+        }
+        #home .grid-item a {
+            all: unset;
+            display: block;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        /* 方块悬浮效果【适配固定尺寸】 */
+        .content-panel:not(#home) .grid-item:hover {
+            border-color: #4299e1;
+            background: #ebf8ff;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1), 0 0 8px rgba(66, 153, 225, 0.15);
+        }
+        .content-panel:not(#home) .grid-item::selection {
+            background: transparent;
+            color: inherit;
+        }
+
+        /* 悬浮提示小方块样式【完全保留】 */
+        .content-panel:not(#home) .grid-tip {
+            position: absolute;
+            top: -38px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 6px 12px;
+            background: #2d3748;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 8px;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            z-index: 99;
+            pointer-events: none;
+        }
+        .content-panel:not(#home) .grid-item:hover .grid-tip {
+            opacity: 1;
+            visibility: visible;
+        }
+        .content-panel:not(#home) .grid-tip.bottom {
+            top: auto;
+            bottom: -30px;
+        }
+        .content-panel:not(#home) .grid-tip::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 6px 6px 0;
+            border-style: solid;
+            border-color: #2d3748 transparent transparent;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+        }
+        .content-panel:not(#home) .grid-item:hover .grid-tip::after {
+            opacity: 1;
+            visibility: visible;
+        }
+        .content-panel:not(#home) .grid-tip.bottom::after {
+            border-width: 0 6px 6px;
+            border-color: transparent transparent #2d3748;
+            top: -6px;
+            bottom: auto;
+        }
+
+        /* 核心：文字智能换行+[新!] 强制显示（重点样式） */
+        .content-panel:not(#home) .grid-name {
+            color: #2d3748;
+            font-size: 1rem;
+            font-weight: 600;
+            width: 100%;
+            height: 40px; /* 固定名称区域高度，限制换行数量 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+            position: relative; /* 为[新!]标签定位做准备 */
+            overflow: hidden; /* 文字过多时截断，核心 */
+            text-overflow: ellipsis; /* 截断显示省略号 */
+            display: -webkit-box; /* 开启webkit多行截断 */
+            -webkit-line-clamp: 2; /* 最多换行2行，超过则截断 */
+            -webkit-box-orient: vertical; /* 垂直排列，配合多行截断 */
+        }
+        /* [新!] 标签：绝对定位+强制显示，不占用文字空间，不被截断 */
+        .content-panel:not(#home) .new-tag {
+            color: #fff;
+            font-weight: bold;
+            font-size: 0.7rem;
+            padding: 1px 5px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #ff4d4f, #ff8a80);
+            text-shadow: 0 0 2px rgba(255,255,255,0.8);
+            box-shadow: 0 0 5px rgba(255, 77, 79, 0.5);
+            position: absolute; /* 绝对定位，脱离文字流 */
+            top: 2px;
+            right: 2px; /* 固定在名称区域右上角 */
+            z-index: 2; /* 层级高于文字，强制显示 */
+            white-space: nowrap; /* 标签不换行 */
+        }
+        /* 标签悬浮效果 */
+        .content-panel:not(#home) .grid-item:hover .new-tag {
+            background: linear-gradient(135deg, #ff7875, #ff4d4f);
+            transform: scale(1.05);
+            transition: all 0.2s ease;
+        }
+        /* 网址样式：单行截断，适配固定尺寸 */
+        .content-panel:not(#home) .grid-url {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            width: 100%;
+            margin-top: 4px;
+            text-align: center;
+            white-space: nowrap; /* 网址单行显示 */
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 方块链接样式：占满整个方块，点击无死角【完全保留】 */
+        .content-panel:not(#home) .grid-item a {
+            text-decoration: none;
+            color: inherit;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+
+        /* 面板切换：保留search-show/search-hide标识，用于布局切换【完全保留】 */
+        .content-panel { display: none; }
+        .content-panel.active { display: block; }
+        .content-panel.search-show { display: block; }
+        .content-panel.search-hide { display: none; }
+
+        /* 无搜索结果提示【完全保留】 */
+        .no-results {
+            display: none;
+            text-align: center;
+            padding: 3rem 0;
+            color: #4a5568;
+            font-size: 1.1rem;
+        }
+        .no-results.show {
+            display: block;
+        }
+
+        /* 平板适配：单独调整固定尺寸，适配中等屏幕 */
+        @media (min-width: 769px) and (max-width: 1200px) {
+            .content-panel:not(#home) .grid-item {
+                width: 180px; /* 平板标准宽度 */
+                height: 110px; /* 平板标准高度 */
+            }
+            .content-panel:not(#home) .grid-name {
+                height: 36px; /* 平板名称区域高度 */
+                font-size: 0.95rem;
+            }
+            .content-panel:not(#home) .new-tag {
+                font-size: 0.65rem;
+            }
+        }
+
+        /* 移动端适配：单独调整固定尺寸，适配小屏幕 */
+        @media (max-width: 768px) {
+            .sidebar { width: 160px; padding: 1rem 0.5rem; }
+            .menu-item { height: 55px; font-size: 0.9rem; }
+            .main-content { padding: 1rem; }
+            
+            .search-container {
+                margin-bottom: 1.5rem;
+                max-width: 100%;
+            }
+            .search-input {
+                padding: 0.7rem 1rem;
+                font-size: 0.95rem;
+            }
+            
+            /* 移动端固定标准尺寸 */
+            .content-panel:not(#home) .grid-item {
+                width: 180px !important;; /* 移动端标准宽度 */
+                height: 110px !important;; /* 移动端标准高度 */
+                gap: 12px;
+                padding: 0.6rem;
+            }
+            /* 移动端文字区域适配 */
+            .content-panel:not(#home) .grid-name {
+                height: 32px; /* 移动端名称区域高度 */
+                font-size: 0.9rem;
+            }
+            .content-panel:not(#home) .new-tag {
+                font-size: 0.6rem;
+                padding: 1px 4px;
+            }
+            .content-panel:not(#home) .grid-url {
+                font-size: 0.7rem;
+            }
+            /* 移动端提示框适配 */
+            .content-panel:not(#home) .grid-tip { 
+                top: -35px; 
+                padding: 4px 8px; 
+                font-size: 10px; 
+            }
+            .content-panel:not(#home) .grid-tip.bottom { bottom: -32px; }
+
+            #home .grid-container { gap: 1rem; }
+            #home .grid-name { font-size: 1rem; margin-right: 0.5rem; }
+            #home .grid-url { font-size: 0.95rem; }
+        }
+
+        /* 主页链接单独样式【完全保留】 */
+        #home .grid-url a {
+            all: unset;
+            color: #4299e1;
+            cursor: pointer;
+            text-decoration: underline;
+            pointer-events: auto;
+        }
+        #home .grid-url a:hover {
+            color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebarContainer"></div>
+    <div class="main-content" id="contentContainer">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="搜索网站名称/描述...">
+        </div>
+        <div class="no-results" id="noResults">
+            😕 没有找到匹配的结果sorry!
+        </div>
+    </div>
+
+    <script>
+        // 核心导航数据：完全保留原有内容，可直接添加/修改     |||||                { name: "", url: "", tip: "", isNew: true},
+        const navData = [
+            {
+                id: "home",
+                name: "主页",
+                list: [
+                    { name: "🌟", url: "这是一个静态网站，没有什么特别的"},
+                    { name: "🌟", url: "收录了一些常用和一些……奇怪有趣的网站"},
+                    { name: "🌟", url: "目前我还没有太多money，所以只能让Github托管一下了"},
+                    { name: "👁️ 网站访问量", url: "本站总访问人数：<span id='busuanzi_value_site_pv'></span> 次"},
+                    { name: "🌟 更新记录", url: "https://huh2011.github.io/Update.html"},
+                ]
+            },
+            { id: "panel0", name: "常用网站", list:[
+                { name: "B站", url: "https://www.bilibili.com", tip: "是中国最大的年轻人潮流文化娱乐社区", isNew: true},
+                { name: "百度", url: "https://www.baidu.com", tip: "是拥有强大互联网基础的领先AI公司", isNew: true},
+                { name: "GitHub", url: "https://github.com", tip: "全球最大开源代码托管平台，程序员必备", isNew: true},
+                { name: "百度网盘", url: "https://pan.baidu.com", tip: "云存储服务，文件同步/分享/备份", isNew: true},
+            ]},
+            { id: "panel1", name: "集大成站", list: [
+                { name: "有趣网址", url: "https://youquhome.com/", tip: "收藏全球最有趣的网站", isNew: true},
+                { name: "随机网站", url: "https://theuselessweb.com/", tip: "随机跳出来一个网站", isNew: true},
+            ]},
+            { id: "panel2", name: "知识资料", list: [
+                { name: "实时卫星期气象图", url: "https://zoom.earth/", tip: "实时气象卫星图片", isNew: true},
+                { name: "计算", url: "https://www.wolframalpha.com/", tip: "数学，科学，社会……", isNew: true},
+                { name: "校服图片", url: "https://uniform.wingzero.tw/zh-TW", tip: "亚洲各高校制服", isNew: true},
+                { name: "高分辨率世界名画", url: "https://en.gallerix.ru/", tip: "17万张高分辨率世界名画", isNew: true},
+                { name: "环游世界", url: "https://www.airpano.com/?n=10&sort_by=&page=1", tip: "环游世界的虚拟之旅", isNew: true},
+            ]},
+            { id: "panel3", name: "视频/图片/音效", list: [
+                { name: "二次元图站", url: "https://anime-pictures.net/", tip: "二次元图片站，超多高清壁纸", isNew: true},
+                { name: "编辑图片", url: "https://www.fotojet.com/", tip: "将你的想法转化为惊艳的艺术品", isNew: true},
+                { name: "高分辨率世界名画", url: "https://en.gallerix.ru/", tip: "17万张高分辨率世界名画", isNew: true},
+            ]},
+            { id: "panel6", name: "奇怪网站", list: [
+                { name: "聊天室", url: "https://drrr.com/", tip: "在线匿名聊天室，随机匹配聊天对象", isNew: true},
+                { name: "water效果", url: "https://watereffect.net/index.php", tip: "创建你的动画水效果", isNew: true},
+                { name: "随机网站", url: "https://theuselessweb.com/", tip: "随机跳出来一个网站", isNew: true},
+            ]},
+            { id: "panel7", name: "生活网站", list: [
+                { name: "设定目标", url: "https://habitica.com/static/front", tip: "激励自己，实现目标，养成好习惯", isNew: true},
+                { name: "购买物品(怪?……)", url: "https://weirdorconfusing.com/", tip: "购买国外一些奇奇怪怪的小玩样儿！", isNew: true},
+            ]},
+            { id: "panel8", name: "未分类站", list: [
+                { name: "手机的全历史", url: "https://mowned.com/", tip: "手机的全历史（疑），收录历代手机型号", isNew: true},
+                { name: "好像是PPT格式", url: "https://dribbble.com/wagerfield", tip: "无", isNew: true},
+                { name: "好像改变音乐风格", url: "https://the.wubmachine.com/", tip: "改变音乐风格（疑）", isNew: true},
+                { name: "高校制服(不安全!)", url: "http://www.seihuku-zukan.com/index.htm", tip: "日本高校制服", isNew: true},
+                { name: "音乐素材下载(不安全!)", url: "http://www.hmix.net/music_gallery/music_top.htm", tip: "免费下载音乐素材", isNew: true},
+                { name: "消磨时间网站（疑）", url: "https://johnsu.deviantart.com/art/Halfne-Miku-Studio-396850314", tip: "消磨时间？", isNew: true},
+            ]},
+            { id: "panel9", name: "游戏网站", list: [
+                { name: "猜地点", url: "https://www.geoguessr.com/", tip: "让我们探索世界吧！", isNew: true},
+                { name: "在线音游", url: "https://www.beatstage.com/", tip: "第一个开放式网页音乐游戏", isNew: true},
+                { name: "随机网站", url: "https://theuselessweb.com/", tip: "随机跳出来一个网站", isNew: true},
+                { name: "分割框框", url: "https://mondrianandme.com/", tip: "消磨时间吧……", isNew: true},
+                { name: "鼠标效果", url: "https://cursoreffects.com/", tip: "更改拖影", isNew: true},
+                { name: "随机涂鸦", url: "https://jacksonpollock.org/", tip: "涂鸦吧", isNew: true},
+                { name: "无底马", url: "http://endless.horse/", tip: "无限长的马腿！", isNew: true},
+            ]},
+        ].filter(panel => panel.list.length > 0);
+
+        // DOM元素获取
+        const sidebarContainer = document.getElementById('sidebarContainer');
+        const contentContainer = document.getElementById('contentContainer');
+        const searchInput = document.getElementById('searchInput');
+        const noResults = document.getElementById('noResults');
+
+        // 渲染侧边栏【无改动】
+        function renderSidebar() {
+            sidebarContainer.innerHTML = navData.map((item, i) => 
+                `<div class="menu-item ${i === 0 ? 'active' : ''}" data-target="${item.id}">${item.name}</div>`
+            ).join('');
+        }
+
+        // 渲染内容面板【仅调整标签渲染，保证[新!]正常显示】
+        function renderContent() {
+            const searchContainer = contentContainer.querySelector('.search-container');
+            const noResultsEl = contentContainer.querySelector('.no-results');
+            contentContainer.innerHTML = '';
+            contentContainer.appendChild(searchContainer);
+            contentContainer.appendChild(noResultsEl);
+
+            const panelsHtml = navData.map(panel => {
+                const gridItems = panel.list
+                    .filter(grid => grid.name || grid.url || grid.tip)
+                    .map(grid => {
+                        const linkUrl = grid.url.startsWith('http') ? grid.url : 'javascript:void(0)';
+                        const linkTarget = grid.url.startsWith('http') ? 'target="_blank"' : '';
+                        // 单独渲染[新!]标签，避免和文字混排导致截断
+                        const newTag = grid.isNew ? '<span class="new-tag">[新!]</span>' : '';
+                        
+                        return `
+                        <div class="grid-item ${panel.id === 'home' ? 'home-item' : ''}" 
+                             data-search="${[grid.name, grid.tip].filter(Boolean).join(' ').toLowerCase()}">
+                            ${panel.id !== 'home' && grid.tip ? `<div class="grid-tip">${grid.tip}</div>` : ''}
+                            <a href="${linkUrl}" ${linkTarget}>
+                                <div class="grid-name">
+                                    ${grid.name}
+                                    ${newTag}
+                                </div>
+                                <div class="grid-url">${grid.url}</div>
+                            </a>
+                        </div>
+                    `}).join('');
+                return `<div class="content-panel ${panel.id === 'home' ? 'active' : ''}" id="${panel.id}">
+                    <div class="grid-container">${gridItems}</div>
+                </div>`;
+            }).join('');
+            
+            contentContainer.insertAdjacentHTML('beforeend', panelsHtml);
+            
+            // 主页特殊处理
+            document.querySelectorAll('#home .grid-item a').forEach(link => {
+                if (!link.href || link.href === 'javascript:void(0)' || link.href === window.location.href) {
+                    link.style.pointerEvents = 'none';
+                    link.style.cursor = 'default';
+                } else {
+                    link.style.pointerEvents = 'auto';
+                    link.style.cursor = 'pointer';
+                }
+            });
+        }
+
+        // 提示框位置自适应【无改动】
+        function initTipPosition() {
+            document.querySelectorAll('.content-panel:not(#home) .grid-item').forEach(item => {
+                item.removeEventListener('mouseover', handleTipPosition);
+                item.addEventListener('mouseover', handleTipPosition);
+            });
+        }
+        function handleTipPosition() {
+            const tip = this.querySelector('.grid-tip');
+            if (!tip) return;
+            const rect = this.getBoundingClientRect();
+            const tipHeight = 30;
+            tip.classList.toggle('bottom', rect.top < tipHeight + 10);
+        }
+
+        // 侧边栏切换事件【无改动】
+        function bindEvents() {
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.content-panel').forEach(panel => {
+                        panel.classList.remove('search-show', 'search-hide');
+                        panel.style.display = '';
+                    });
+                    document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+                    item.classList.add('active');
+                    const target = item.dataset.target;
+                    document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+                    document.getElementById(target).classList.add('active');
+                    searchInput.value = '';
+                    searchInput.dispatchEvent(new Event('input'));
+                    initTipPosition();
+                });
+            });
+        }
+
+        // 搜索功能【仅新增去重逻辑，其余完全保留】
+        function initSearch() {
+            searchInput.addEventListener('input', function(e) {
+                const searchText = e.target.value.trim().toLowerCase();
+                const homePanel = document.getElementById('home');
+                noResults.classList.remove('show');
+                
+                if (!searchText) {
+                    document.querySelectorAll('.content-panel').forEach(panel => {
+                        panel.classList.remove('search-show', 'search-hide');
+                        panel.style.display = '';
+                    });
+                    document.querySelectorAll('.grid-item').forEach(item => {
+                        item.style.display = '';
+                    });
+                    return;
+                }
+
+                homePanel.classList.add('search-hide');
+                homePanel.classList.remove('search-show');
+                homePanel.style.display = 'none';
+
+                let hasResults = false;
+                // 新增：用于去重的Set，存储已显示的条目标识（名称+网址组合）
+                const displayedItems = new Set();
+                
+                document.querySelectorAll('.content-panel').forEach(panel => {
+                    if (panel.id === 'home') return;
+                    
+                    const gridItems = panel.querySelectorAll('.grid-item:not(.home-item)');
+                    let panelHasResults = false;
+                    
+                    gridItems.forEach(item => {
+                        const searchData = item.dataset.search || '';
+                        if (searchData.includes(searchText)) {
+                            // 新增：生成唯一标识（名称+网址），避免重复显示
+                            const itemName = item.querySelector('.grid-name').textContent.replace('[新!]', '').trim();
+                            const itemUrl = item.querySelector('.grid-url').textContent.trim();
+                            const itemKey = `${itemName}|${itemUrl}`;
+                            
+                            if (!displayedItems.has(itemKey)) {
+                                item.style.display = '';
+                                displayedItems.add(itemKey);
+                                panelHasResults = true;
+                                hasResults = true;
+                            } else {
+                                item.style.display = 'none';
+                            }
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                    
+                    if (panelHasResults) {
+                        panel.classList.add('search-show');
+                        panel.classList.remove('search-hide');
+                    } else {
+                        panel.classList.add('search-hide');
+                        panel.classList.remove('search-show');
+                    }
+                });
+
+                if (!hasResults) {
+                    noResults.classList.add('show');
+                }
+            });
+
+            // 回车清空搜索框
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    this.value = '';
+                    this.dispatchEvent(new Event('input'));
+                    this.focus();
+                }
+            });
+        }
+
+        // 初始化所有功能
+        renderSidebar();
+        renderContent();
+        bindEvents();
+        initTipPosition();
+        initSearch();
+    </script>
+    <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+</body>
+</html>
